@@ -43,8 +43,12 @@ Apply in order from `supabase/migrations/`:
 3. `20260527130000_leaderboard_schema_guard.sql` — idempotent guard that ensures the leaderboard and run_tokens tables have every column the server needs. Safe to run on existing DBs.
 4. `20260528000000_leaderboard_public_view.sql` — creates `public.leaderboard_public` (masked emails) and revokes direct SELECT on the base table from `anon`/`authenticated`. The browser reads the view; service-role reads/writes go through the base table as before.
 5. `20260528010000_run_tokens_hygiene.sql` — adds the `(client_ip, issued_at)` index for the per-IP rate limit and (if `pg_cron` is available) schedules a 15-minute cleanup of stale tokens.
+6. `20260528020000_ht6_user_identity.sql` — adds `ht6_user_id`/`first_name`/`last_name` and updates `submit_run` + the public view to use them.
+7. `20260601000000_anticheat_hardening.sql` — binds claimed `time_secs` to real token age and binds the run token to an HT6 identity.
+8. `20260611000000_leaderboard_exclude_null_run_id.sql` — keeps unverified (`run_id IS NULL`) rows off `leaderboard_public`.
+9. `20260617193000_revoke_anon_leaderboard_writes.sql` — **security fix.** Revokes the default `INSERT/UPDATE/DELETE` grants from `anon`/`authenticated` on `leaderboard` (and all grants on `run_tokens`), adds a restrictive deny policy, and purges the disclosure test rows. Without this, anyone with the public anon key can POST directly to `/rest/v1/leaderboard` and bypass all server-side validation. Apply this promptly.
 
-Easiest application: Supabase Dashboard → SQL Editor → paste each file, run. Order matters for #1 only; #2 and #3 can be applied in either order, and both are idempotent.
+Easiest application: Supabase Dashboard → SQL Editor → paste each file, run. Order matters for #1 only; the rest are idempotent and can be applied in either order.
 
 ## 4. After deploy: hit `/api/health`
 
